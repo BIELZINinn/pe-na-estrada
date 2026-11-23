@@ -16,12 +16,39 @@ async function applyData(data) {
 }
 
 /* ---------- Arquivo ---------- */
+const markBackup = () => { try { localStorage.setItem('mb-lastbackup', Date.now()); } catch { } };
+async function makeBackup() {
+  const o = { app: 'pe-na-estrada', v: 2, at: Date.now(), S, photos: await buildPhotos() };
+  return new File([JSON.stringify(o)], `pe-na-estrada-backup-${isoToday()}.json`, { type: 'application/json' });
+}
 async function exportFile() {
   toast('Preparando o arquivo…');
-  const o = { app: 'pe-na-estrada', v: 2, at: Date.now(), S, photos: await buildPhotos() };
-  download(`pe-na-estrada-backup-${isoToday()}.json`, new Blob([JSON.stringify(o)], { type: 'application/json' }));
+  const f = await makeBackup(); download(f.name, f); markBackup();
   toast('Backup salvo ✅ (guarde o arquivo em local seguro)');
 }
+async function shareBackup() {
+  toast('Preparando o backup…');
+  const f = await makeBackup();
+  try {
+    if (navigator.canShare?.({ files: [f] })) { await navigator.share({ files: [f], title: 'Backup Pé na Estrada', text: 'Backup do app Pé na Estrada' }); markBackup(); toast('Backup enviado ✅'); return; }
+  } catch (e) { if (e.name === 'AbortError') return; }
+  download(f.name, f); markBackup(); toast('Seu navegador não abre o compartilhar. O arquivo foi baixado ✅', 5000);
+}
+function backupNag() {
+  try {
+    if (!(S.visits.length || S.trips.length)) return;
+    const last = +localStorage.getItem('mb-lastbackup') || 0, snooze = +localStorage.getItem('mb-nagsnooze') || 0, now = Date.now();
+    if (!last) { localStorage.setItem('mb-lastbackup', now); return; } // primeira vez: começa a contar hoje
+    if (now - last < 7 * 864e5 || now < snooze) return;
+    const b = document.createElement('div'); b.id = 'nag';
+    b.style.cssText = 'position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 64px);z-index:50;background:#fff7dc;border:3px solid #3a2a1a;border-radius:16px;padding:10px 12px;box-shadow:0 4px 0 #3a2a1a;font:600 14px Fredoka,sans-serif;color:#3a2a1a;display:flex;gap:8px;align-items:center';
+    b.innerHTML = '<span style="flex:1">💾 Faz mais de 7 dias sem backup. Quer enviar agora?</span><button class="btn sm" id="nagY">Enviar</button><button class="btn sec sm" id="nagN">Depois</button>';
+    document.body.appendChild(b);
+    $('#nagY').onclick = () => { b.remove(); shareBackup(); };
+    $('#nagN').onclick = () => { localStorage.setItem('mb-nagsnooze', Date.now() + 864e5); b.remove(); };
+  } catch { }
+}
+setTimeout(backupNag, 6000);
 function importFile() {
   const i = document.createElement('input'); i.type = 'file'; i.accept = 'application/json,.json';
   i.onchange = async () => {
@@ -112,9 +139,11 @@ if (drv.email && gClientId()) setTimeout(async () => { try { await getToken(fals
 function viewCloud() {
   const cid = gClientId(), on = !!drv.email;
   sheet(`<button class="btn sec sm" data-act="backMap">‹ Voltar</button><h2>☁️ Backup e nuvem</h2>
-  <h3>📁 Arquivo</h3><p class="muted">Salva tudo (dados + fotos) em um arquivo para guardar ou levar para outro celular.</p>
-  <div class="row"><button class="btn sec" data-act="export">⬇️ Exportar tudo</button><button class="btn sec" data-act="import">⬆️ Restaurar arquivo</button></div>
-  <h3>☁️ Google Drive</h3>
+  <h3>💾 Backup simples</h3><p class="muted">Salva tudo (lugares, viagens e fotos) em um arquivo. Toque em <b>Enviar backup</b> e escolha WhatsApp, Drive, Telegram ou e-mail: mande para você mesmo. Para trocar de celular, abra o arquivo aqui em <b>Restaurar</b>.</p>
+  <button class="btn" style="width:100%" data-act="shareBk">📤 Enviar backup</button>
+  <div class="row"><button class="btn sec" data-act="export">⬇️ Baixar arquivo</button><button class="btn sec" data-act="import">⬆️ Restaurar arquivo</button></div>
+  <p class="muted">Último backup: ${+localStorage.getItem('mb-lastbackup') ? new Date(+localStorage.getItem('mb-lastbackup')).toLocaleString('pt-BR') : 'nenhum ainda'}. O app avisa a cada 7 dias.</p>
+  <details${on || cid ? ' open' : ''}><summary><b>⚙️ Avançado: login automático com Google Drive</b></summary>
   ${on ? `<div class="item t-ok"><div class="ic">✅</div><div class="bd"><b>${esc(drv.email)}</b><span class="muted">${drv.last ? 'Último envio: ' + new Date(drv.last).toLocaleString('pt-BR') : 'Ainda sem envio'}${drv.hold ? ' · ⏸️ envio pausado: há um backup mais novo na nuvem' : ''}</span></div></div>
   <div class="row"><button class="btn" data-act="gdUp">⬆️ Salvar agora</button><button class="btn sec" data-act="gdDown">⬇️ Restaurar</button></div>
   <div class="row"><button class="btn sec" data-act="gdAuto">${drv.auto === false ? '🔕 Auto: desligado' : '🔄 Auto: ligado'}</button><button class="btn sec" data-act="gdIn">🔑 Entrar de novo</button></div>
@@ -130,10 +159,10 @@ function viewCloud() {
   <li>Em <b>Credenciais → Criar → ID do cliente OAuth → Aplicativo da Web</b>. Em <b>Origens JavaScript autorizadas</b> coloque:<br><b>${esc(location.origin)}</b></li>
   <li>Copie o ID (termina em .apps.googleusercontent.com) e cole abaixo.</li></ol>
   <input id="gcid" placeholder="123456-abc.apps.googleusercontent.com"><button class="btn" style="width:100%" data-act="gdId">Salvar ID</button>`}
-  ${location.protocol === 'file:' ? '<p class="muted">⚠️ Abra o app por https (GitHub Pages) para o login do Google funcionar.</p>' : ''}`);
+  ${location.protocol === 'file:' ? '<p class="muted">⚠️ Abra o app por https (GitHub Pages) para o login do Google funcionar.</p>' : ''}</details>`);
 }
 Object.assign(act, {
-  cloud: viewCloud, export: exportFile, import: importFile,
+  cloud: viewCloud, export: exportFile, import: importFile, shareBk: shareBackup,
   gdId() { const v = ($('#gcid')?.value || prompt('Cole o ID do cliente Google:') || '').trim(); if (!v) return; if (!/\.apps\.googleusercontent\.com$/.test(v)) return toast('Esse ID não parece certo (termina em .apps.googleusercontent.com).', 5000); localStorage.setItem('mb-gcid', v); toast('ID salvo ✅'); viewCloud(); },
   gdIn: driveConnect,
   async gdUp() { toast('Enviando…'); try { await getToken(true); await driveUpload(true); toast('Salvo no Google Drive ✅'); viewCloud(); } catch (e) { toast('Falha ao enviar: ' + (e.message || 'erro'), 5000); } },
