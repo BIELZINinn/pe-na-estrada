@@ -1,5 +1,5 @@
 const C = 'penaestrada-v2', T = 'pe-tiles', L = 'pe-libs';
-const F = ['./', 'index.html', 'style.css', 'app.js', 'extras.js', 'sync.js', 'offline.js', 'config.js', 'manifest.json', 'icon.svg', 'logo.svg'];
+const F = ['./', 'index.html', 'style.css', 'app.js', 'extras.js', 'sync.js', 'offline.js', 'nav.js','config.js', 'manifest.json', 'icon.svg', 'logo.svg'];
 const LIBS = ['https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js', 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css'];
 const TILEHOST = 'tiles.openfreemap.org', LIBHOSTS = ['unpkg.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 self.addEventListener('install', e => {

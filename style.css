@@ -154,3 +154,21 @@ a{text-decoration:none}
 @keyframes conf{to{transform:translateY(112vh) rotate(var(--r))}}
 @keyframes fade{from{opacity:0}}
 select{width:100%;font:inherit;padding:7px 10px;border:var(--bd);border-radius:12px;background:#fff;color:var(--ink)}
+
+/* ===== Modo navegação ===== */
+body.navmode #tabs,body.navmode #fabs,body.navmode #trackBar,body.navmode #top{display:none!important}
+#navTop,#navBot{position:fixed;left:10px;right:10px;z-index:20;background:var(--paper);border:var(--bd);box-shadow:3px 4px 0 var(--ink);border-radius:18px;padding:10px 14px;display:flex;align-items:center;gap:10px}
+#navTop[hidden],#navBot[hidden],#navOff[hidden],#nbRec[hidden]{display:none}
+#navTop{top:calc(env(safe-area-inset-top) + 10px);justify-content:space-between;background:var(--yl)}
+#navTop small,#navBot small{display:block;font-size:11px;opacity:.7;font-weight:600}
+#navTop b{font-family:'Lilita One','Fredoka',sans-serif;font-weight:400;font-size:20px;line-height:1.1}
+.nt-main{min-width:0;flex:1}.nt-main b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nt-side{text-align:right}
+#navOff{position:fixed;z-index:21;left:10px;right:10px;top:calc(env(safe-area-inset-top) + 86px);background:#ff5a5a;color:#fff;border:var(--bd);border-radius:14px;padding:8px 12px;font-weight:600;text-align:center}
+#navBot{bottom:calc(10px + env(safe-area-inset-bottom));justify-content:space-between}
+.nb{text-align:center;min-width:52px}.nb b{font-family:'Lilita One','Fredoka',sans-serif;font-weight:400;font-size:22px}
+#navBot button{width:44px;height:44px;border-radius:50%;border:var(--bd);background:#fff;font-size:20px;box-shadow:2px 2px 0 var(--ink)}
+#nbEnd{background:#ff5a5a!important}
+.navme{background:none!important;border:none!important;box-shadow:none!important;width:44px!important;height:44px!important}
+.navarrow{width:44px;height:44px;background:#4cc9f0;border:4px solid #fff;box-shadow:0 0 0 3px var(--ink),0 4px 8px #0006;clip-path:none;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;position:relative}
+.navarrow:before{content:'';position:absolute;left:50%;top:-14px;transform:translateX(-50%);border:11px solid transparent;border-bottom:16px solid var(--ink);border-top:0}

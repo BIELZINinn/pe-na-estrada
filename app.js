@@ -172,13 +172,15 @@ async function startTrack() {
   if (!navigator.geolocation) return toast('Sem GPS neste aparelho.');
   cur = { id: uid(), start: new Date().toISOString(), pts: [] }; S.tracks.push(cur);
   try { wake = await navigator.wakeLock?.request('screen'); } catch { }
-  watchId = navigator.geolocation.watchPosition(p => {
+  watchId = navigator.geolocation.watchPosition(async p => {
     if (p.coords.accuracy > 80) return;
-    const pt = [+p.coords.longitude.toFixed(5), +p.coords.latitude.toFixed(5), Math.round(Date.now() / 1000)];
+    let pt = [+p.coords.longitude.toFixed(5), +p.coords.latitude.toFixed(5), Math.round(Date.now() / 1000)];
+    if (typeof snapPoint === 'function') { try { const sp = await snapPoint(pt, p.coords); if (sp) pt = [+sp[0].toFixed(5), +sp[1].toFixed(5), pt[2]]; } catch { } }
+    if (!cur) return;
     lastPos = pt; setMe(pt[0], pt[1]);
     const l = cur.pts[cur.pts.length - 1];
     if (!l || hav(l, pt) > 0.02) { cur.pts.push(pt); if (cur.pts.length % 8 === 0) { save(); noteStateAt(pt); } drawTracks(); updKm(); }
-    if (cur.pts.length < 2) map.easeTo({ center: pt, zoom: 14 });
+    if (cur.pts.length < 2 && !window.NAV?.on) map.easeTo({ center: pt, zoom: 14 });
   }, geoErr, { enableHighAccuracy: true, maximumAge: 5000 });
   $('#fabTrack').classList.add('rec'); $('#trackBar').hidden = false; toast('Gravando seu trajeto. Mantenha o app aberto.');
 }
@@ -492,6 +494,7 @@ function showTrip(id) {
   const evs = S.events, enrich = [];
   sheet(`<h2>🧳 ${esc(tripTitle(t))}</h2>
   <p class="muted">${fmtDate(pd(t.start))} → ${fmtDate(pd(t.end))} · ${days.length} dia(s)${multi ? ` · ${legs.length} paradas` : ''}</p>
+  ${p.route && !p.route.straight ? `<button class="btn" style="width:100%;margin:6px 0 10px;font-size:20px" data-act="navStart" data-t="${t.id}">▶️ Iniciar viagem</button>` : '<p class="muted">▶️ Para iniciar a viagem com GPS, o roteiro precisa de uma cidade de saída e rota por estrada (refaça com internet).</p>'}
   <div class="stats"><div class="stat"><b>${p.route ? fmtKm(p.route.km) : '—'}</b>${p.route?.straight ? 'em linha reta' : 'de distância'}</div><div class="stat"><b>${p.route?.sec ? fmtDur(p.route.sec) : '—'}</b>de carro</div><div class="stat"><b>${all.length}</b>CCBs achadas</div></div>
   ${t.from ? `<p class="muted">🚩 Saindo de: <b>${esc(stopName(t.from.name))}</b></p>` : '<p class="muted">Sem saída informada — escolha a cidade de saída em Viagem para ver distância e caminho.</p>'}
   ${p.route?.via?.length ? `<p class="muted">🛣️ Passa por: ${p.route.via.map(esc).join(' → ')}</p>` : ''}
