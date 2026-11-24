@@ -1,0 +1,23 @@
+name: Gerar APK
+on:
+  workflow_dispatch: {}
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - run: bash tools/build-apk.sh
+      - uses: actions/upload-artifact@v4
+        with: { name: PeNaEstrada-apk, path: PeNaEstrada.apk }
+      - name: Publicar na aba Releases
+        if: startsWith(github.ref, 'refs/tags/')
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: gh release create "${{ github.ref_name }}" PeNaEstrada.apk --title "Pé na Estrada ${{ github.ref_name }}" --notes "APK para Android. Baixe, abra e permita instalar de fonte desconhecida." || gh release upload "${{ github.ref_name }}" PeNaEstrada.apk --clobber
