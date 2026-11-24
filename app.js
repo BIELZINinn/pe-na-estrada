@@ -36,14 +36,14 @@ const photosOf = vid => tx('readonly', s => s.index('v').getAll(vid));
 const countPhotos = () => tx('readonly', s => s.count());
 const delPhotos = vid => tx('readwrite', s => { s.index('v').getAllKeys(vid).onsuccess = e => e.target.result.forEach(k => s.delete(k)); });
 
-function compress(file, max = 1400) {
+function compress(file, max = 1280) {
   return new Promise(res => {
     const img = new Image(), u = URL.createObjectURL(file);
     img.onload = () => {
       const k = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement('canvas');
       c.width = img.width * k; c.height = img.height * k;
       c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-      c.toBlob(b => { URL.revokeObjectURL(u); res(b); }, 'image/jpeg', .82);
+      c.toBlob(b => { URL.revokeObjectURL(u); res(b); }, 'image/jpeg', .74);
     };
     img.onerror = () => res(file); img.src = u;
   });
@@ -364,7 +364,7 @@ function churchCard(c, from, withDay) {
   <button class="btn sm sec" data-act="goTo" data-lat="${c.lat}" data-lng="${c.lng}">Ver</button>
   <button class="btn sm sec" data-act="visitCh" data-id="${esc(c.id)}">✔ Estive</button>
   ${c.src === 'user' || c.rel ? '' : `<button class="btn sm sec" data-act="notCcb" data-id="${esc(c.id)}">🚫 Não é CCB</button>`}
-  <a class="btn sm sec" style="text-align:center;text-decoration:none;color:inherit" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}">🚗</a></div></div></div>`;
+  <a class="btn sm sec" style="text-align:center;text-decoration:none;color:inherit" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}">🚗 Maps</a><a class="btn sm sec" style="text-align:center;text-decoration:none;color:inherit" target="_blank" href="https://waze.com/ul?ll=${c.lat},${c.lng}&navigate=yes">🚙 Waze</a></div></div></div>`;
 }
 let known = {}; // id -> church (cache de sessão)
 let chMarkers = [];
@@ -382,6 +382,7 @@ async function viewCCB() {
   sheet(`<h2>⛪ Congregação Cristã</h2>
   ${relCard('', null)}
   <button class="btn" style="width:100%" data-act="ccbNear">🔎 Buscar casas de oração aqui</button>
+  <button class="btn sec" style="width:100%;margin-top:6px" data-act="agenda">📅 Cultos da semana (igrejas que conheço)</button>
   <div id="ccbList"></div>
   <p class="muted">A busca usa o OpenStreetMap, que pode não ter todas as casas de oração. Horários de culto variam por local: cadastre/edite o que você confirmar (ficam salvos no app).</p>
   <h3>Minhas casas de oração</h3>
@@ -503,6 +504,8 @@ function showTrip(id) {
   ${p.route ? `<button class="btn sec" style="width:100%;margin:6px 0" data-act="support" data-t="${t.id}">⛽ Pontos de apoio na rota (postos, comida, hotéis)</button>` : ''}
   <button class="btn sec" style="width:100%;margin:0 0 6px" data-act="remind" data-t="${t.id}">🔔 Lembretes de culto nesta viagem</button>
   <button class="btn sec" style="width:100%;margin:0 0 6px" data-act="offline" data-t="${t.id}">📴 Baixar mapa offline desta viagem</button>
+  <div class="row" style="margin:0 0 6px"><button class="btn sec" data-act="tripShare" data-t="${t.id}">🖼️ Compartilhar</button><button class="btn sec" data-act="tripAlbum" data-t="${t.id}">📸 Álbum</button></div>
+  <h3>🙏 Pedidos de oração e visitas</h3><textarea id="prayer" data-t="${t.id}" placeholder="Irmãos para visitar, pedidos de oração, recados…">${esc(t.prayer || '')}</textarea>
   ${relCard(t.id, legs[0], 0)}
   ${days.map(d => {
     const is = iso(d), wd = d.getDay(), k = legIdx(is), l = legs[k], dp = [l.lng, l.lat], w = l.weather?.[is], ds = legDays[k], i2 = ds.indexOf(is), pois = l.pois || [];
@@ -729,7 +732,7 @@ const act = {
   delEvent(d) { S.events = S.events.filter(e => e.id !== d.id); save(); viewCCB(); },
   async tSearch(d) {
     const k = d.k === 'from' ? 'from' : 'dest', box = $(k === 'from' ? '#tPickFrom' : '#tPick');
-    const q = $(k === 'from' ? '#tFrom' : '#tDest').value.trim(); if (!q) return; box.innerHTML = '<p class="muted">Buscando…</p>';
+    const q = $(k === 'from' ? '#tFrom' : '#tDest').value.trim(); if (!q) return; box.innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
     try { const r = await geocode(q); (act._r ||= {})[k] = r; box.innerHTML = r.map((x, i) => `<div class="item" data-act="tPick" data-k="${k}" data-i="${i}"><div class="ic">📍</div><div class="bd">${esc(x.name)}</div></div>`).join('') || '<p class="muted">Nada encontrado.</p>'; }
     catch { box.innerHTML = '<p class="muted">Sem conexão.</p>'; }
   },

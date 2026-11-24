@@ -16,7 +16,6 @@ function snapRoute(p, from) {
   if (!best || best.d > 150) scan(0, c.length - 1);
   return best;
 }
-function speak(txt) { if (!NAV.voice || !('speechSynthesis' in window)) return; try { const u = new SpeechSynthesisUtterance(txt); u.lang = 'pt-BR'; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch { } }
 
 async function navFetch(wps) {
   const r = await (await fetch(`https://router.project-osrm.org/route/v1/driving/${wps.map(x => x.join(',')).join(';')}?overview=full&geometries=geojson&continue_straight=false`)).json();
@@ -36,12 +35,10 @@ function navUI() {
   if ($('#navTop')) return;
   const d = document.createElement('div');
   d.innerHTML = `<div id="navTop" hidden><div class="nt-main"><small>PRÓXIMA PARADA</small><b id="ntName">…</b></div><div class="nt-side"><b id="ntKm">–</b><small id="ntEta"></small></div></div>
-  <div id="navOff" hidden></div>
   <div id="navBot" hidden><div class="nb"><b id="nbSpd">0</b><small>km/h</small></div><div class="nb"><b id="nbRem">–</b><small>restam</small></div><div class="nb"><b id="nbArr">–</b><small>chegada</small></div>
-  <button id="nbRec" title="Centralizar" hidden>🎯</button><button id="nbVoice" title="Voz">🔊</button><button id="nbEnd" title="Encerrar">⏹</button></div>`;
+  <button id="nbRec" title="Centralizar" hidden>🎯</button><button id="nbEnd" title="Encerrar">⏹</button></div>`;
   [...d.children].forEach(x => document.body.appendChild(x));
   $('#nbEnd').onclick = () => { if (confirm('Encerrar a viagem agora?')) navStop(false); };
-  $('#nbVoice').onclick = () => { NAV.voice = !NAV.voice; $('#nbVoice').textContent = NAV.voice ? '🔊' : '🔇'; if (!NAV.voice) try { speechSynthesis.cancel(); } catch { } };
   $('#nbRec').onclick = () => { NAV.follow = true; $('#nbRec').hidden = true; if (lastPos) navCam(lastPos, NAV.head, true); };
   map.on('dragstart', e => { if (NAV.on && e.originalEvent) { NAV.follow = false; $('#nbRec').hidden = false; } });
 }
@@ -68,8 +65,7 @@ function navOnPos(raw, c) {
     NAV.along = NAV.cum[sn.i] + (NAV.cum[sn.i + 1] - NAV.cum[sn.i]) * sn.t;
     let j = sn.i + 1; while (j < NAV.coords.length - 1 && j < sn.i + 12 && hav(pos, NAV.coords[j]) < 0.03) j++;
     head = brg(pos, NAV.coords[Math.min(j, NAV.coords.length - 1)]);
-    $('#navOff').hidden = true;
-  } else { NAV.off++; if (NAV.off >= 3 && sn && sn.d > 90) navOff(raw); }
+  } else NAV.off++; // desvio: sem avisos, sem recalcular — só segue gravando por onde você for
   NAV.head = head;
   // velocidade
   const now = Date.now(); if (c.speed >= 0 && c.speed != null) NAV.spd = c.speed; else if (NAV.lastP && now > NAV.lastT) NAV.spd = hav(NAV.lastP, pos) * 1000 / ((now - NAV.lastT) / 1000);
@@ -80,30 +76,15 @@ function navOnPos(raw, c) {
   if (now - NAV.lastDraw > 6000 && ready) { NAV.lastDraw = now; const i = Math.min(NAV.idx + 1, NAV.coords.length - 1); map.getSource('route').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: [[pos[0], pos[1]], ...NAV.coords.slice(i)] } }); }
   return pos;
 }
-function navChecks(pos) {
+function navChecks(pos) { // silencioso: só marca as paradas por onde você passou
   const next = NAV.stops.find(s => !s.arrived); if (!next) return;
   const d = hav(pos, [next.lng, next.lat]), dn = (next.along ?? 0) - NAV.along;
-  if (d < 0.15 || (dn < 0.05 && d < 0.4)) {
-    next.arrived = true; toast(`📍 Você chegou: ${next.name}`, 5000); speak(`Você chegou em ${next.name}`);
-    if (NAV.stops.every(s => s.arrived)) setTimeout(() => navStop(true), 2500);
-  } else if (dn < 1 && !NAV.said[next.name + 'n']) { NAV.said[next.name + 'n'] = 1; speak(`Em um quilômetro, chegada em ${next.name}`); }
-}
-async function navOff(pos) {
-  const now = Date.now(), el = $('#navOff'); el.hidden = false; el.textContent = '⚠️ Fora da rota — recalculando…';
-  if (NAV.rerouting || now - NAV.lastRe < 20000) return;
-  NAV.rerouting = true; NAV.lastRe = now;
-  try {
-    const rem = NAV.stops.filter(s => !s.arrived);
-    await navBuild([[pos[0], pos[1]], ...rem.map(s => [s.lng, s.lat])], rem); speak('Rota recalculada'); el.hidden = true;
-  } catch { el.textContent = '⚠️ Fora da rota — sem internet para recalcular'; }
-  NAV.rerouting = false;
+  if (d < 0.15 || (dn < 0.05 && d < 0.4)) { next.arrived = true; if (NAV.stops.every(s => s.arrived)) setTimeout(() => navStop(true), 2500); }
 }
 
 /* ---------- ponto da estrada mais próximo (fora do modo viagem) ---------- */
 let nrLast = 0;
-async function snapPoint(pt, c) {
-  if (NAV.on) return navOnPos(pt, c);
-  if (!(c.speed >= 2.5)) return pt; // só quando está em movimento
+async function nearestRoad(pt) {
   const now = Date.now(); if (now - nrLast < 3000) return pt; nrLast = now;
   try {
     const ac = new AbortController(); setTimeout(() => ac.abort(), 3000);
@@ -111,6 +92,11 @@ async function snapPoint(pt, c) {
     if (w && w.distance <= 35) return [+w.location[0].toFixed(5), +w.location[1].toFixed(5), pt[2]];
   } catch { }
   return pt;
+}
+async function snapPoint(pt, c) {
+  if (NAV.on) { const p = navOnPos(pt, c); return NAV.off > 0 ? nearestRoad(p) : p; }
+  if (!(c.speed >= 2.5)) return pt; // só quando está em movimento
+  return nearestRoad(pt);
 }
 
 /* ---------- iniciar / encerrar ---------- */
@@ -130,22 +116,21 @@ async function navStart(tid) {
   try { await navBuild([origin, ...stops.map(s => [s.lng, s.lat])], stops); } catch { return toast('Não consegui traçar a rota agora. Verifique a internet.', 6000); }
   Object.assign(NAV, { on: true, t: tid, stops, follow: true, said: {}, lastDraw: 0, lastRe: 0, spd: 0, lastP: null, head: brg(origin, NAV.coords[Math.min(5, NAV.coords.length - 1)]) });
   document.body.classList.add('navmode'); closeSheet();
-  ['#navTop', '#navBot'].forEach(s => $(s).hidden = false); $('#nbRec').hidden = true; $('#nbVoice').textContent = NAV.voice ? '🔊' : '🔇';
+  ['#navTop', '#navBot'].forEach(s => $(s).hidden = false); $('#nbRec').hidden = true;
   setMe(origin[0], origin[1]); const el = meMarker.getElement(); el.classList.add('navme'); el.innerHTML = '<div class="navarrow"></div>'; meMarker.setRotationAlignment('map'); meMarker.setPitchAlignment('map');
   lastPos = origin; navHud(); navCam(origin, NAV.head, true);
   if (!cur) { NAV.ownTrack = true; await startTrack(); } else NAV.ownTrack = false;
-  speak(`Viagem iniciada. Próxima parada: ${stops[0].name}`);
-  toast('🚗 Viagem iniciada! Boa estrada!', 4000);
+  try { sfx?.start?.(); } catch { }
 }
 function navStop(done) {
   if (!NAV.on) return;
   NAV.on = false; document.body.classList.remove('navmode');
-  ['#navTop', '#navBot', '#navOff'].forEach(s => { const e = $(s); if (e) e.hidden = true; });
+  ['#navTop', '#navBot'].forEach(s => { const e = $(s); if (e) e.hidden = true; });
   try { const e = meMarker.getElement(); e.classList.remove('navme'); e.innerHTML = ''; meMarker.setRotation(0); } catch { }
-  try { speechSynthesis.cancel(); } catch { }
   if (NAV.ownTrack && cur) stopTrack(); NAV.ownTrack = false;
   const tid = NAV.t; map.easeTo({ pitch: 0, bearing: 0, duration: 800 });
-  if (done) { speak('Viagem concluída. Deus abençoe!'); try { mascotParty?.(); } catch { } toast('🎉 Viagem concluída! Deus abençoe!', 6000); }
+  if (done) { try { sfx?.fanfare?.(); mascotParty?.(); } catch { } toast('🎉 Chegou! Viagem concluída. Deus abençoe!', 6000); }
+  try { runCelebrate(); } catch { }
   showTrip(tid);
 }
 document.addEventListener('visibilitychange', async () => { if (document.visibilityState === 'visible' && NAV.on) { try { wake = await navigator.wakeLock?.request('screen'); } catch { } } });

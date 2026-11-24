@@ -3,10 +3,15 @@
 set -euo pipefail
 ROOT="$(pwd)"; B="$ROOT/_apk"; rm -rf "$B"; mkdir -p "$B/www"
 # 1) arquivos do app + MapLibre embutido (funciona sem baixar a biblioteca)
-cp index.html style.css app.js extras.js sync.js offline.js nav.js config.js manifest.json icon.svg logo.svg "$B/www/"
+cp index.html style.css app.js extras.js sync.js offline.js nav.js fx.js config.js manifest.json icon.svg logo.svg "$B/www/"
 curl -fsSL https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js -o "$B/www/maplibre-gl.js"
 curl -fsSL https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css -o "$B/www/maplibre-gl.css"
 sed -i 's#https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js#maplibre-gl.js#; s#https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css#maplibre-gl.css#' "$B/www/index.html"
+echo "window.APP_BUILD=${BUILD_NUM:-1};" > "$B/www/version.js"
+# minifica (nomes globais são preservados)
+npm i --no-audit --no-fund --prefix "$B/_t" terser >/dev/null
+for f in app extras sync offline nav fx; do "$B/_t/node_modules/.bin/terser" "$B/www/$f.js" -c -m -o "$B/www/$f.js"; done
+rm -rf "$B/_t"
 cd "$B"
 cat > package.json <<'J'
 {"name":"pe-na-estrada","version":"1.0.0","private":true}

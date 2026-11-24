@@ -143,6 +143,7 @@ function viewCloud() {
   <button class="btn" style="width:100%" data-act="shareBk">📤 Enviar backup</button>
   <div class="row"><button class="btn sec" data-act="export">⬇️ Baixar arquivo</button><button class="btn sec" data-act="import">⬆️ Restaurar arquivo</button></div>
   <p class="muted">Último backup: ${+localStorage.getItem('mb-lastbackup') ? new Date(+localStorage.getItem('mb-lastbackup')).toLocaleString('pt-BR') : 'nenhum ainda'}. O app avisa a cada 7 dias.</p>
+  <button class="btn sec" style="width:100%;margin:8px 0" data-act="upd">🔄 Procurar atualização do app</button>
   <details${on || cid ? ' open' : ''}><summary><b>⚙️ Avançado: login automático com Google Drive</b></summary>
   ${on ? `<div class="item t-ok"><div class="ic">✅</div><div class="bd"><b>${esc(drv.email)}</b><span class="muted">${drv.last ? 'Último envio: ' + new Date(drv.last).toLocaleString('pt-BR') : 'Ainda sem envio'}${drv.hold ? ' · ⏸️ envio pausado: há um backup mais novo na nuvem' : ''}</span></div></div>
   <div class="row"><button class="btn" data-act="gdUp">⬆️ Salvar agora</button><button class="btn sec" data-act="gdDown">⬇️ Restaurar</button></div>
