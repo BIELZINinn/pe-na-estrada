@@ -18,8 +18,9 @@ npm i --no-audit --no-fund @capacitor/core@6 @capacitor/cli@6 @capacitor/android
 # 2) ícone
 mkdir -p assets && node -e "require('sharp')('$ROOT/icon.svg',{density:400}).resize(1024,1024).flatten({background:'#fff1c9'}).png().toFile('assets/icon-only.png')"
 cp assets/icon-only.png assets/icon-foreground.png
+node -e "require('sharp')({create:{width:1024,height:1024,channels:3,background:'#fff1c9'}}).png().toFile('assets/icon-background.png')"
 npx cap add android
-npx capacitor-assets generate --android --iconBackgroundColor '#fff1c9' --iconBackgroundColorDark '#fff1c9' || echo "icones padrao"
+npx capacitor-assets generate --android || echo "icones padrao"
 # 3) permissões (GPS, câmera, internet, notificações)
 node -e "
 const fs=require('fs'),f='android/app/src/main/AndroidManifest.xml';let m=fs.readFileSync(f,'utf8');
